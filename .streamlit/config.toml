@@ -1,0 +1,17 @@
+[theme]
+# CommonSpirit Health Brand Colors
+primaryColor = "#BE2BBB"  # Pink/Magenta for interactive elements
+backgroundColor = "#FFFFFF"  # White background
+secondaryBackgroundColor = "#F5F5F7"  # Light gray for cards
+textColor = "#2D2D2D"  # Dark gray text
+font = "sans serif"
+
+[server]
+headless = true
+port = 8501
+address = "0.0.0.0"
+enableCORS = false
+enableXsrfProtection = true
+
+[browser]
+gatherUsageStats = false

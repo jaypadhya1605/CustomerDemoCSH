@@ -1,0 +1,86 @@
+# Azure OpenAI Pricing Configuration
+# Source: Azure OpenAI Pricing (Demo Estimates)
+# Note: Actual prices may vary based on region, offer, and discounts
+
+models:
+  gpt-5-mini:
+    display_name: "GPT-5 Mini"
+    input_per_1k_tokens: 0.00015
+    output_per_1k_tokens: 0.0006
+    description: "Cost-efficient model for general tasks"
+
+  gpt-5.2:
+    display_name: "GPT-5.2"
+    input_per_1k_tokens: 0.0025
+    output_per_1k_tokens: 0.01
+    description: "Advanced model for complex reasoning"
+
+  gpt-realtime:
+    display_name: "GPT Realtime"
+    input_per_1k_tokens: 0.06
+    output_per_1k_tokens: 0.24
+    description: "Real-time audio/voice model"
+
+# Azure Service Rates (Demo Estimates)
+azure_services:
+  storage:
+    blob_storage_per_gb: 0.018
+    description: "Azure Blob Storage - Hot tier"
+
+  app_service:
+    basic_b1_per_hour: 0.018
+    standard_s1_per_hour: 0.10
+    description: "App Service hosting plans"
+
+  log_analytics:
+    ingestion_per_gb: 2.76
+    retention_per_gb_per_month: 0.10
+    description: "Log Analytics workspace"
+
+  functions:
+    per_million_executions: 0.20
+    per_gb_seconds: 0.000016
+    free_grant_executions: 1000000
+    free_grant_gb_seconds: 400000
+    description: "Azure Functions consumption plan"
+
+  application_insights:
+    ingestion_per_gb: 2.30
+    description: "Application performance monitoring"
+
+  key_vault:
+    operations_per_10k: 0.03
+    description: "Secrets and key management"
+
+  cosmos_db:
+    ru_per_100_per_hour: 0.008
+    storage_per_gb: 0.25
+    description: "Azure Cosmos DB serverless"
+
+  ai_search:
+    basic_per_hour: 0.101
+    description: "Azure AI Search (Basic tier)"
+
+# CommonSpirit Demo Architecture - Monthly Cost Summary
+demo_architecture_costs:
+  compute:
+    app_service_b1: 13.14  # $0.018 * 24 * 30.5
+    functions: 0.00  # Mostly free tier
+    
+  ai_services:
+    openai_estimate: 10.00  # ~1000 requests/month estimate
+    
+  data:
+    blob_storage: 0.09  # 5 GB
+    log_analytics: 13.80  # 5 GB ingestion
+    
+  monitoring:
+    application_insights: 2.30  # 1 GB
+    
+  total_monthly_estimate: 39.33
+
+metadata:
+  last_updated: "2026-02-02"
+  currency: "USD"
+  region: "East US 2"
+  disclaimer: "These are demo estimates. Actual costs may vary based on region, usage patterns, and enterprise agreements. Check Azure pricing calculator for current rates."

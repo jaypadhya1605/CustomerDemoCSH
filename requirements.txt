@@ -1,0 +1,28 @@
+# CommonSpirit Health - Conversational Analytics
+# Python Dependencies
+
+# Web Framework
+streamlit>=1.28.0
+
+# Azure OpenAI
+openai>=1.12.0
+
+# Environment & Config
+python-dotenv>=1.0.0
+
+# Data Processing
+pandas>=2.0.0
+openpyxl>=3.1.0
+pyyaml>=6.0
+
+# Visualization
+plotly>=5.18.0
+
+# Azure SDK
+azure-storage-blob>=12.19.0
+azure-identity>=1.15.0
+requests>=2.31.0
+
+# Application Insights (optional - for local testing)
+opencensus-ext-azure>=1.1.0
+applicationinsights>=0.11.10

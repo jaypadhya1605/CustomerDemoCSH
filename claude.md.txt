@@ -1,0 +1,51 @@
+Demo name : Conversational Analytics - Clinical Quality
+
+1) Uses your exact deployed model + endpoint (no drift)
+Pulled directly from your uploaded azure-resources:
+
+Endpoint: https://mf-custdemo-convanalytics-clinical-jp-001.cognitiveservices.azure.com/
+Primary deployment: gpt-5-mini
+Responses API route: /openai/responses?api-version=2025-04-01-preview [azure-resources | Word]
+
+2) Strong emphasis on COST as the storyline
+The doc enforces:
+
+Workload-based cost framing (not “platform cost”) consistent with the way you described it in your customer working session.
+Cost receipts after every Q&A turn
+A “real-time-ish” dashboard that shows:
+
+Estimated cost instantly (token-based)
+Actual Azure spend later (Cost Mgmt delay, but authoritative)
+
+
+
+3) “Real-time processing” for cost tracking across Azure services
+Since true “actual cost” isn’t real-time in Cost Management, the doc sets up a two-track model:
+
+Estimated per request (real-time): tokens × local price table
+Actual cost feed (authoritative): Cost Mgmt exports / usage details (delayed)
+
+This is the cleanest and most defensible way to meet your “real-time cost-tracking” requirement without overclaiming Azure’s latency.
+4) Pricing requirement handled safely + credibly
+You asked: “list the price when you use azure services.”
+Because price varies by region/offer/discount and I don’t have your exact pricing sheet in tools, the agent.md requires a local pricing/prices.yaml that your agents load at runtime, and mandates that every displayed price include a source reference (or be clearly labeled demo estimate).
+
+Important: I did not include or repeat your API keys from the doc. Your uploaded file contains secrets, and the agent guide explicitly prohibits printing them. [azure-resources | Word]
+
+5) Feel free to create fake-data on the go for VTE part in clinical data. You can use azure blobs and host the excel files for this project
+
+Also created a starter pricing scaffold (for your agents)
+Alongside the agent.md, I generated a starter template at:
+pricing/prices.yaml (locally in the workspace created by the tool)
+It includes placeholders for:
+
+gpt-5-mini, gpt-5.2, gpt-realtime
+App Service / Storage / Log Analytics ingestion rates
+
+(Your agents can populate this from your approved pricing source.)
+
+
+The goal of this project is to be aligned with : 
+VTE Incentive goal analytics for quality leaders (performance-to-goal + identifying opportunities)
+Use case label: Conversational Analytics – Clinical Quality
+And your working session discussion emphasized that Foundry cost is driven by services used + token consumption (not a single SKU) — which is now encoded as a core principle in the doc.
