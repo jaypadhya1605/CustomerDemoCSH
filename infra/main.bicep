@@ -10,8 +10,8 @@ param location string = resourceGroup().location
 param environmentName string = 'csh-convanalytics'
 
 @description('App Service Plan SKU')
-@allowed(['B1', 'B2', 'S1', 'P1v2'])
-param appServicePlanSku string = 'B1'
+@allowed(['F1', 'B1', 'B2', 'S1', 'P1v2'])
+param appServicePlanSku string = 'S1'
 
 @description('Azure OpenAI Endpoint URL')
 param azureOpenAiEndpoint string
