@@ -21,6 +21,7 @@ plotly>=5.18.0
 # Azure SDK
 azure-storage-blob>=12.19.0
 azure-identity>=1.15.0
+azure-ai-projects>=1.0.0b1
 requests>=2.31.0
 
 # Azure Monitor & OpenTelemetry for Tracing

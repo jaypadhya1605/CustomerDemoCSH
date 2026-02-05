@@ -1,29 +1,98 @@
 """
 Azure Application Insights Tracing Service for Conversational Analytics.
 Implements OpenTelemetry tracing for Azure AI Foundry monitoring integration.
+
+Based on: https://learn.microsoft.com/en-us/azure/ai-foundry/how-to/develop/trace-application
 """
 import os
 from typing import Optional, Dict, Any
 import json
 from datetime import datetime
 
-# Set environment variable BEFORE any instrumentation
+# CRITICAL: Set environment variable BEFORE any instrumentation
+# This enables capturing message content (inputs/outputs) in traces
 os.environ["OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"] = "true"
 
-# OpenTelemetry imports
-from opentelemetry import trace
-from opentelemetry.trace import Status, StatusCode
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
+# Flag to track if tracing is available
+TRACING_AVAILABLE = False
+_tracing_initialized = False
 
-# Azure Monitor integration
+# Try to import tracing packages
 try:
     from azure.monitor.opentelemetry import configure_azure_monitor
     from opentelemetry.instrumentation.openai_v2 import OpenAIInstrumentor
+    from opentelemetry import trace
+    from opentelemetry.trace import Status, StatusCode
     TRACING_AVAILABLE = True
-except ImportError:
-    TRACING_AVAILABLE = False
-    print("⚠️ Azure Monitor OpenTelemetry packages not installed. Tracing disabled.")
+except ImportError as e:
+    print(f"⚠️ Azure Monitor OpenTelemetry packages not installed. Tracing disabled. Error: {e}")
+    configure_azure_monitor = None
+    OpenAIInstrumentor = None
+    trace = None
+
+
+def initialize_tracing(connection_string: Optional[str] = None) -> bool:
+    """
+    Initialize OpenTelemetry tracing with Azure Monitor.
+    
+    IMPORTANT: This must be called BEFORE creating any OpenAI clients!
+    
+    Args:
+        connection_string: Application Insights connection string.
+                          If not provided, reads from APPLICATIONINSIGHTS_CONNECTION_STRING env var.
+    
+    Returns:
+        True if tracing was configured successfully, False otherwise.
+    """
+    global _tracing_initialized
+    
+    if _tracing_initialized:
+        print("ℹ️ Tracing already initialized")
+        return True
+    
+    if not TRACING_AVAILABLE:
+        print("⚠️ Tracing packages not available")
+        return False
+    
+    conn_str = connection_string or os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING")
+    
+    if not conn_str:
+        print("⚠️ No Application Insights connection string provided. Tracing disabled.")
+        return False
+    
+    try:
+        # Step 1: Configure Azure Monitor with the connection string
+        # This sets up the OpenTelemetry exporter to send traces to App Insights
+        configure_azure_monitor(connection_string=conn_str)
+        print("✅ Azure Monitor configured")
+        
+        # Step 2: Instrument the OpenAI SDK
+        # This automatically captures all OpenAI API calls as spans
+        OpenAIInstrumentor().instrument()
+        print("✅ OpenAI SDK instrumented for tracing")
+        
+        _tracing_initialized = True
+        print("✅ Application Insights tracing configured successfully!")
+        return True
+        
+    except Exception as e:
+        print(f"⚠️ Warning: Could not configure tracing: {e}")
+        return False
+
+
+def get_tracer(name: str = __name__):
+    """
+    Get an OpenTelemetry tracer for custom spans.
+    
+    Args:
+        name: Name for the tracer (typically __name__)
+        
+    Returns:
+        Tracer instance or None if tracing not available
+    """
+    if not TRACING_AVAILABLE or trace is None:
+        return None
+    return trace.get_tracer(name)
 
 
 class TracingService:
@@ -38,32 +107,10 @@ class TracingService:
         
         Args:
             connection_string: Application Insights connection string.
-                              If not provided, reads from APPLICATIONINSIGHTS_CONNECTION_STRING env var.
         """
         self.connection_string = connection_string or os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING")
-        self.is_configured = False
-        self.tracer = None
-        
-        if self.connection_string and TRACING_AVAILABLE:
-            self._configure_tracing()
-    
-    def _configure_tracing(self):
-        """Configure Azure Monitor and OpenTelemetry instrumentation."""
-        try:
-            # Configure Azure Monitor with the connection string
-            configure_azure_monitor(connection_string=self.connection_string)
-            
-            # Instrument OpenAI SDK for automatic tracing
-            OpenAIInstrumentor().instrument()
-            
-            # Get tracer for custom spans
-            self.tracer = trace.get_tracer(__name__)
-            self.is_configured = True
-            print("✅ Application Insights tracing configured successfully!")
-            
-        except Exception as e:
-            print(f"⚠️ Warning: Could not configure tracing: {e}")
-            self.is_configured = False
+        self.is_configured = initialize_tracing(self.connection_string)
+        self.tracer = get_tracer(__name__) if self.is_configured else None
     
     def trace_chat_interaction(
         self,
@@ -79,21 +126,14 @@ class TracingService:
         """
         Trace a chat interaction with full input/output capture.
         
-        Args:
-            user_message: The user's input message
-            assistant_response: The assistant's response
-            model: The model used for the response
-            input_tokens: Number of input tokens
-            output_tokens: Number of output tokens
-            response_time_ms: Response time in milliseconds
-            session_id: Optional session identifier
-            additional_attributes: Additional custom attributes to include
+        Note: With OpenAIInstrumentor, OpenAI calls are automatically traced.
+        This method adds additional custom spans for business context.
         """
         if not self.is_configured or not self.tracer:
             return
         
-        with self.tracer.start_as_current_span("chat_interaction") as span:
-            try:
+        try:
+            with self.tracer.start_as_current_span("chat_interaction") as span:
                 # Add input event for Azure AI Foundry visibility
                 span.add_event(
                     name="gen_ai.content.prompt",
@@ -113,8 +153,6 @@ class TracingService:
                 )
                 
                 # Set span attributes for metrics
-                span.set_attribute("gen_ai.prompt", user_message)
-                span.set_attribute("gen_ai.completion", assistant_response)
                 span.set_attribute("gen_ai.request.model", model)
                 span.set_attribute("gen_ai.usage.prompt_tokens", input_tokens)
                 span.set_attribute("gen_ai.usage.completion_tokens", output_tokens)
@@ -125,7 +163,6 @@ class TracingService:
                 if session_id:
                     span.set_attribute("session.id", session_id)
                 
-                # Add timestamp
                 span.set_attribute("timestamp", datetime.utcnow().isoformat())
                 
                 # Add any additional custom attributes
@@ -138,8 +175,8 @@ class TracingService:
                 
                 span.set_status(Status(StatusCode.OK))
                 
-            except Exception as e:
-                span.set_status(Status(StatusCode.ERROR, str(e)))
+        except Exception as e:
+            print(f"⚠️ Error tracing chat interaction: {e}")
     
     def trace_dashboard_view(
         self,
@@ -147,57 +184,22 @@ class TracingService:
         user_action: str,
         data_context: Optional[Dict[str, Any]] = None,
     ):
-        """
-        Trace dashboard view interactions.
-        
-        Args:
-            view_name: Name of the dashboard view
-            user_action: Action performed by the user
-            data_context: Optional context about the data being viewed
-        """
+        """Trace dashboard view interactions."""
         if not self.is_configured or not self.tracer:
             return
         
-        with self.tracer.start_as_current_span("dashboard_interaction") as span:
-            span.set_attribute("view.name", view_name)
-            span.set_attribute("user.action", user_action)
-            span.set_attribute("timestamp", datetime.utcnow().isoformat())
-            
-            if data_context:
-                for key, value in data_context.items():
-                    if isinstance(value, (str, int, float, bool)):
-                        span.set_attribute(f"data.{key}", value)
-    
-    def trace_data_query(
-        self,
-        query_type: str,
-        dataset: str,
-        filters: Optional[Dict[str, Any]] = None,
-        result_count: int = 0,
-        execution_time_ms: float = 0,
-    ):
-        """
-        Trace data query operations.
-        
-        Args:
-            query_type: Type of query (e.g., "vte_metrics", "financial_summary")
-            dataset: Dataset being queried
-            filters: Query filters applied
-            result_count: Number of results returned
-            execution_time_ms: Query execution time
-        """
-        if not self.is_configured or not self.tracer:
-            return
-        
-        with self.tracer.start_as_current_span("data_query") as span:
-            span.set_attribute("query.type", query_type)
-            span.set_attribute("query.dataset", dataset)
-            span.set_attribute("query.result_count", result_count)
-            span.set_attribute("query.execution_time_ms", execution_time_ms)
-            span.set_attribute("timestamp", datetime.utcnow().isoformat())
-            
-            if filters:
-                span.set_attribute("query.filters", json.dumps(filters))
+        try:
+            with self.tracer.start_as_current_span("dashboard_interaction") as span:
+                span.set_attribute("view.name", view_name)
+                span.set_attribute("user.action", user_action)
+                span.set_attribute("timestamp", datetime.utcnow().isoformat())
+                
+                if data_context:
+                    for key, value in data_context.items():
+                        if isinstance(value, (str, int, float, bool)):
+                            span.set_attribute(f"data.{key}", value)
+        except Exception as e:
+            print(f"⚠️ Error tracing dashboard view: {e}")
 
 
 # Singleton instance for app-wide tracing
