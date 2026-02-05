@@ -1,13 +1,10 @@
 """
 Chat interface component for Streamlit app.
-Includes tracing integration for Application Insights.
 """
 import streamlit as st
-import time
 from typing import Optional
 from services.azure_openai import AzureOpenAIService, ChatResponse
 from services.cost_calculator import CostCalculator, CostBreakdown
-from services.tracing import get_tracing_service
 
 
 def initialize_chat_state():
@@ -47,7 +44,7 @@ def render_chat_interface(
             st.markdown(message["content"])
 
     # Chat input
-    if prompt := st.chat_input("Ask about VTE metrics, financial data, trends, or recommendations..."):
+    if prompt := st.chat_input("Ask about VTE metrics, trends, or recommendations..."):
         # Add user message to chat
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
@@ -57,9 +54,6 @@ def render_chat_interface(
         with st.chat_message("assistant"):
             with st.spinner("Analyzing..."):
                 try:
-                    # Track response time for tracing
-                    start_time = time.time()
-                    
                     if vte_context:
                         response = openai_service.chat_with_context(
                             user_message=prompt,
@@ -71,9 +65,6 @@ def render_chat_interface(
                             user_message=prompt,
                             conversation_history=st.session_state.conversation_history,
                         )
-                    
-                    # Calculate response time
-                    response_time_ms = (time.time() - start_time) * 1000
 
                     # Display response
                     st.markdown(response.content)
@@ -98,23 +89,6 @@ def render_chat_interface(
                         output_tokens=response.output_tokens,
                     )
                     st.session_state.last_cost_breakdown = cost_breakdown
-                    
-                    # Trace the interaction for Application Insights
-                    tracing_service = get_tracing_service()
-                    if tracing_service.is_configured:
-                        tracing_service.trace_chat_interaction(
-                            user_message=prompt,
-                            assistant_response=response.content,
-                            model=response.model,
-                            input_tokens=response.input_tokens,
-                            output_tokens=response.output_tokens,
-                            response_time_ms=response_time_ms,
-                            session_id=st.session_state.get("session_id"),
-                            additional_attributes={
-                                "estimated_cost": cost_breakdown.total_estimated_cost,
-                                "conversation_length": len(st.session_state.messages),
-                            }
-                        )
 
                     return cost_breakdown
 
@@ -141,16 +115,16 @@ def render_chat_sidebar():
 
 
 def get_suggested_questions() -> list[str]:
-    """Return a list of suggested questions for VTE and financial analytics."""
+    """Return a list of suggested questions for VTE analytics."""
     return [
         "What is our current VTE prophylaxis rate across all departments?",
         "Which departments are below the 85% target for VTE prevention?",
-        "What is the total cost of VTE treatment events?",
-        "Show me the ROI of our VTE prevention program",
-        "Which department has the highest patient costs?",
-        "Compare VTE prophylaxis costs vs treatment costs",
-        "What is the average cost per patient by department?",
-        "Give me a summary of VTE quality and financial metrics",
+        "Show me the trend in VTE events over the past 6 months",
+        "What are the top opportunities to improve VTE compliance?",
+        "Compare performance between ICU and general medicine units",
+        "Which physicians have the highest VTE prophylaxis rates?",
+        "What factors are associated with VTE events in our data?",
+        "Give me a summary of our VTE quality metrics",
     ]
 
 

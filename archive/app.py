@@ -7,13 +7,10 @@ Features:
 - Conversational AI interface using Azure OpenAI
 - Real-time cost tracking (two-track model)
 - VTE clinical quality metrics dashboard
-- Financial analytics with patient cost integration
 - Azure service cost transparency
-- Application Insights tracing for monitoring
 """
 import streamlit as st
 import sys
-import pandas as pd
 from pathlib import Path
 
 # Add project root to path
@@ -21,7 +18,6 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from services.azure_openai import AzureOpenAIService
 from services.cost_calculator import CostCalculator
-from services.tracing import init_tracing, get_tracing_service
 from components.chat import (
     render_chat_interface,
     render_chat_sidebar,
@@ -32,15 +28,14 @@ from components.cost_tracker import (
     render_cost_receipt,
     render_cost_tracker,
     render_cost_timeline,
+    render_cost_sidebar,
     render_two_track_explanation,
 )
 from components.dashboard import (
     load_vte_data,
-    load_financial_data,
     get_vte_context,
     render_vte_dashboard,
     render_physician_performance,
-    render_financial_dashboard,
 )
 from config.settings import validate_config, load_pricing
 
@@ -271,11 +266,7 @@ st.markdown(COMMONSPIRIT_CSS, unsafe_allow_html=True)
 
 
 def initialize_services():
-    """Initialize Azure OpenAI, cost calculator, tracing, and data services."""
-    # Initialize tracing first (for App Insights integration)
-    if "tracing_service" not in st.session_state:
-        st.session_state.tracing_service = init_tracing()
-    
+    """Initialize Azure OpenAI and cost calculator services."""
     if "openai_service" not in st.session_state:
         try:
             st.session_state.openai_service = AzureOpenAIService()
@@ -289,14 +280,8 @@ def initialize_services():
     if "vte_data" not in st.session_state:
         st.session_state.vte_data = load_vte_data()
 
-    if "financial_data" not in st.session_state:
-        st.session_state.financial_data = load_financial_data()
-
     if "vte_context" not in st.session_state:
-        st.session_state.vte_context = get_vte_context(
-            st.session_state.vte_data, 
-            st.session_state.financial_data
-        )
+        st.session_state.vte_context = get_vte_context(st.session_state.vte_data)
 
 
 def render_header():
@@ -333,9 +318,15 @@ def render_sidebar():
     # Page selection
     page = st.sidebar.radio(
         "Select View",
-        ["Chat & Analytics", "VTE Dashboard", "Financial Analytics", "Cost Tracking", "Azure Services", "Settings"],
+        ["Chat & Analytics", "VTE Dashboard", "Cost Tracking", "Azure Services", "Settings"],
         key="page_selection",
     )
+
+    st.sidebar.divider()
+
+    # Cost summary (always visible)
+    if "cost_calculator" in st.session_state:
+        render_cost_sidebar(st.session_state.cost_calculator)
 
     st.sidebar.divider()
 
@@ -388,20 +379,12 @@ def render_chat_analytics_page():
 
 def render_vte_dashboard_page():
     """Render the VTE dashboard page."""
-    render_vte_dashboard(st.session_state.vte_data, st.session_state.financial_data)
+    render_vte_dashboard(st.session_state.vte_data)
 
     st.divider()
 
     # Physician performance
     render_physician_performance(st.session_state.vte_data)
-
-
-def render_financial_analytics_page():
-    """Render the Financial Analytics page."""
-    render_financial_dashboard(
-        st.session_state.financial_data, 
-        st.session_state.vte_data
-    )
 
 
 def render_cost_tracking_page():
@@ -584,13 +567,6 @@ def render_settings_page():
         st.success(f"Configuration Status: {message}")
     else:
         st.error(f"Configuration Error: {message}")
-    
-    # Tracing status
-    tracing_service = st.session_state.get("tracing_service")
-    if tracing_service and tracing_service.is_configured:
-        st.success("✅ Application Insights tracing is active")
-    else:
-        st.warning("⚠️ Application Insights tracing not configured. Set APPLICATIONINSIGHTS_CONNECTION_STRING in .env")
 
     st.divider()
 
@@ -607,7 +583,7 @@ def render_settings_page():
     st.divider()
 
     # Data info
-    st.subheader("VTE Clinical Data Summary")
+    st.subheader("VTE Data Summary")
     df = st.session_state.vte_data
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -617,31 +593,10 @@ def render_settings_page():
     with col3:
         st.metric("Departments", df["Department"].nunique())
 
-    # Financial data info
-    st.subheader("Financial Data Summary")
-    financial_data = st.session_state.financial_data
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        patient_costs = financial_data.get("patient_costs", pd.DataFrame())
-        st.metric("Patient Cost Records", len(patient_costs) if not patient_costs.empty else 0)
-    with col2:
-        dept_budgets = financial_data.get("dept_budgets", pd.DataFrame())
-        st.metric("Department Budgets", len(dept_budgets) if not dept_budgets.empty else 0)
-    with col3:
-        azure_costs = financial_data.get("azure_costs", pd.DataFrame())
-        if not azure_costs.empty:
-            st.metric("Platform Cost (6mo)", f"${azure_costs['Total_Platform_Cost_USD'].sum():,.2f}")
-        else:
-            st.metric("Platform Cost (6mo)", "N/A")
-
-    if st.button("Reload All Data"):
+    if st.button("Reload VTE Data"):
         st.session_state.vte_data = load_vte_data()
-        st.session_state.financial_data = load_financial_data()
-        st.session_state.vte_context = get_vte_context(
-            st.session_state.vte_data, 
-            st.session_state.financial_data
-        )
-        st.success("All data reloaded!")
+        st.session_state.vte_context = get_vte_context(st.session_state.vte_data)
+        st.success("VTE data reloaded!")
         st.rerun()
 
     st.divider()
@@ -687,8 +642,6 @@ def main():
         render_chat_analytics_page()
     elif page == "VTE Dashboard":
         render_vte_dashboard_page()
-    elif page == "Financial Analytics":
-        render_financial_analytics_page()
     elif page == "Cost Tracking":
         render_cost_tracking_page()
     elif page == "Azure Services":
