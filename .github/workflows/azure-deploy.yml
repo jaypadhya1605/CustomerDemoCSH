@@ -114,41 +114,42 @@ jobs:
           echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
 
   # ============================================================================
-  # Deploy Infrastructure (Optional - Manual Trigger)
+  # Deploy Infrastructure (Optional - Manual Trigger Only)
+  # NOTE: This job requires AZURE_CREDENTIALS secret. Skip if not configured.
   # ============================================================================
-  deploy-infrastructure:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch'
-    
-    environment:
-      name: 'infrastructure'
-
-    steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v4
-
-      - name: 🔐 Azure Login
-        uses: azure/login@v2
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: 🏗️ Deploy Bicep Infrastructure
-        uses: azure/arm-deploy@v2
-        with:
-          subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          resourceGroupName: ${{ secrets.AZURE_RESOURCE_GROUP }}
-          template: ./infra/main.bicep
-          parameters: >
-            location=eastus2
-            environmentName=csh-convanalytics
-            appServicePlanSku=B1
-            azureOpenAiEndpoint=${{ secrets.AZURE_OPENAI_ENDPOINT }}
-            azureOpenAiApiKey=${{ secrets.AZURE_OPENAI_API_KEY }}
-            azureOpenAiDeployment=gpt-5-mini
-          failOnStdErr: false
-
-      - name: ✅ Infrastructure Summary
-        run: |
-          echo "## 🏗️ Infrastructure Deployed!" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Resources created in **${{ secrets.AZURE_RESOURCE_GROUP }}**" >> $GITHUB_STEP_SUMMARY
+  # deploy-infrastructure:
+  #   runs-on: ubuntu-latest
+  #   if: github.event_name == 'workflow_dispatch' && secrets.AZURE_CREDENTIALS != ''
+  #   
+  #   environment:
+  #     name: 'infrastructure'
+  #
+  #   steps:
+  #     - name: 📥 Checkout code
+  #       uses: actions/checkout@v4
+  #
+  #     - name: 🔐 Azure Login
+  #       uses: azure/login@v2
+  #       with:
+  #         creds: ${{ secrets.AZURE_CREDENTIALS }}
+  #
+  #     - name: 🏗️ Deploy Bicep Infrastructure
+  #       uses: azure/arm-deploy@v2
+  #       with:
+  #         subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  #         resourceGroupName: ${{ secrets.AZURE_RESOURCE_GROUP }}
+  #         template: ./infra/main.bicep
+  #         parameters: >
+  #           location=eastus2
+  #           environmentName=csh-convanalytics
+  #           appServicePlanSku=B1
+  #           azureOpenAiEndpoint=${{ secrets.AZURE_OPENAI_ENDPOINT }}
+  #           azureOpenAiApiKey=${{ secrets.AZURE_OPENAI_API_KEY }}
+  #           azureOpenAiDeployment=gpt-5-mini
+  #         failOnStdErr: false
+  #
+  #     - name: ✅ Infrastructure Summary
+  #       run: |
+  #         echo "## 🏗️ Infrastructure Deployed!" >> $GITHUB_STEP_SUMMARY
+  #         echo "" >> $GITHUB_STEP_SUMMARY
+  #         echo "Resources created in **${{ secrets.AZURE_RESOURCE_GROUP }}**" >> $GITHUB_STEP_SUMMARY
